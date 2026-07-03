@@ -9,9 +9,30 @@ export default function OwnerDashboard({ profile }) {
   const [announcements, setAnnouncements] = useState([])
   const [maintenance, setMaintenance] = useState([])
   const [guests, setGuests] = useState([])
-  const [form, setForm] = useState({ guest_name: '', valid_from: '', valid_to: '', purpose: '' })
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState('')
+  const [permits, setPermits] = useState([])
+
+  const [guestForm, setGuestForm] = useState({
+    guest_name: '',
+    additional_names: '',
+    contact_number: '',
+    valid_from: '',
+    checkin_time: '',
+    valid_to: '',
+    checkout_time: '',
+    purpose: '',
+  })
+  const [guestSubmitting, setGuestSubmitting] = useState(false)
+  const [guestError, setGuestError] = useState('')
+
+  const [permitForm, setPermitForm] = useState({
+    worker_names: '',
+    company: '',
+    purpose: '',
+    valid_from: '',
+    valid_to: '',
+  })
+  const [permitSubmitting, setPermitSubmitting] = useState(false)
+  const [permitError, setPermitError] = useState('')
 
   async function loadUnits() {
     const { data } = await supabase
@@ -33,6 +54,15 @@ export default function OwnerDashboard({ profile }) {
     ])
     setBills(billsData || [])
     setGuests(guestsData || [])
+  }
+
+  async function loadPermits() {
+    const { data } = await supabase
+      .from('work_permits')
+      .select('*')
+      .eq('submitted_by', profile.id)
+      .order('created_at', { ascending: false })
+    setPermits(data || [])
   }
 
   async function loadBuildingWide() {
@@ -57,6 +87,7 @@ export default function OwnerDashboard({ profile }) {
   useEffect(() => {
     loadUnits()
     loadBuildingWide()
+    loadPermits()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -64,37 +95,87 @@ export default function OwnerDashboard({ profile }) {
     if (selectedUnitId) loadUnitData(selectedUnitId)
   }, [selectedUnitId])
 
+  const selectedUnit = units.find((u) => u.id === selectedUnitId)
+  const latestBill = bills[0]
+
+  const additionalNamesList = guestForm.additional_names
+    .split('\n')
+    .map((n) => n.trim())
+    .filter(Boolean)
+  const totalGuestCount = (guestForm.guest_name.trim() ? 1 : 0) + additionalNamesList.length
+
   async function submitGuest(e) {
     e.preventDefault()
-    setFormError('')
+    setGuestError('')
     if (!selectedUnitId) {
-      setFormError('No unit selected.')
+      setGuestError('No unit selected.')
       return
     }
-    if (!form.guest_name || !form.valid_from || !form.valid_to) {
-      setFormError('Please fill in guest name and both dates.')
+    if (!guestForm.guest_name || !guestForm.valid_from || !guestForm.valid_to) {
+      setGuestError('Please fill in primary guest name and both dates.')
       return
     }
-    setSubmitting(true)
+    setGuestSubmitting(true)
     const { error } = await supabase.from('guests').insert({
       unit_id: selectedUnitId,
       submitted_by: profile.id,
-      guest_name: form.guest_name,
-      valid_from: form.valid_from,
-      valid_to: form.valid_to,
-      purpose: form.purpose || null,
+      guest_name: guestForm.guest_name,
+      additional_guest_names: additionalNamesList,
+      contact_number: guestForm.contact_number || null,
+      valid_from: guestForm.valid_from,
+      checkin_time: guestForm.checkin_time || null,
+      valid_to: guestForm.valid_to,
+      checkout_time: guestForm.checkout_time || null,
+      purpose: guestForm.purpose || null,
     })
-    setSubmitting(false)
+    setGuestSubmitting(false)
     if (error) {
-      setFormError(error.message)
+      setGuestError(error.message)
       return
     }
-    setForm({ guest_name: '', valid_from: '', valid_to: '', purpose: '' })
+    setGuestForm({
+      guest_name: '',
+      additional_names: '',
+      contact_number: '',
+      valid_from: '',
+      checkin_time: '',
+      valid_to: '',
+      checkout_time: '',
+      purpose: '',
+    })
     loadUnitData(selectedUnitId)
   }
 
-  const selectedUnit = units.find((u) => u.id === selectedUnitId)
-  const latestBill = bills[0]
+  async function submitPermit(e) {
+    e.preventDefault()
+    setPermitError('')
+    if (!selectedUnit) {
+      setPermitError('No unit selected.')
+      return
+    }
+    if (!permitForm.worker_names.trim() || !permitForm.valid_from || !permitForm.valid_to) {
+      setPermitError('Please fill in worker name(s) and both dates.')
+      return
+    }
+    setPermitSubmitting(true)
+    const { error } = await supabase.from('work_permits').insert({
+      submitted_by: profile.id,
+      tower: selectedUnit.building,
+      unit_number: selectedUnit.unit_number,
+      worker_names: permitForm.worker_names.trim(),
+      company: permitForm.company.trim() || null,
+      purpose: permitForm.purpose.trim() || null,
+      valid_from: permitForm.valid_from,
+      valid_to: permitForm.valid_to,
+    })
+    setPermitSubmitting(false)
+    if (error) {
+      setPermitError(error.message)
+      return
+    }
+    setPermitForm({ worker_names: '', company: '', purpose: '', valid_from: '', valid_to: '' })
+    loadPermits()
+  }
 
   if (units.length === 0) {
     return (
@@ -162,41 +243,129 @@ export default function OwnerDashboard({ profile }) {
           <div className="card">
             <h2>Submit a Guest</h2>
             <form onSubmit={submitGuest}>
-              <label>Guest name</label>
+              <label>Primary Guest Name</label>
               <input
                 type="text"
                 placeholder="e.g. Maria Santos"
-                value={form.guest_name}
-                onChange={(e) => setForm({ ...form, guest_name: e.target.value })}
+                value={guestForm.guest_name}
+                onChange={(e) => setGuestForm({ ...guestForm, guest_name: e.target.value })}
               />
+
+              <label>Additional Guest Names (optional, one per line)</label>
+              <textarea
+                rows={3}
+                placeholder={'e.g.\nJuan Santos\nAna Santos'}
+                value={guestForm.additional_names}
+                onChange={(e) => setGuestForm({ ...guestForm, additional_names: e.target.value })}
+              />
+              <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+                Total guests: {totalGuestCount || 0}
+              </div>
+
+              <label>Contact Number</label>
+              <input
+                type="tel"
+                placeholder="e.g. 09171234567"
+                value={guestForm.contact_number}
+                onChange={(e) => setGuestForm({ ...guestForm, contact_number: e.target.value })}
+              />
+
               <div className="two-col">
                 <div>
                   <label>Check-in date</label>
                   <input
                     type="date"
-                    value={form.valid_from}
-                    onChange={(e) => setForm({ ...form, valid_from: e.target.value })}
+                    value={guestForm.valid_from}
+                    onChange={(e) => setGuestForm({ ...guestForm, valid_from: e.target.value })}
                   />
                 </div>
+                <div>
+                  <label>Check-in time</label>
+                  <input
+                    type="time"
+                    value={guestForm.checkin_time}
+                    onChange={(e) => setGuestForm({ ...guestForm, checkin_time: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="two-col">
                 <div>
                   <label>Check-out date</label>
                   <input
                     type="date"
-                    value={form.valid_to}
-                    onChange={(e) => setForm({ ...form, valid_to: e.target.value })}
+                    value={guestForm.valid_to}
+                    onChange={(e) => setGuestForm({ ...guestForm, valid_to: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Check-out time</label>
+                  <input
+                    type="time"
+                    value={guestForm.checkout_time}
+                    onChange={(e) => setGuestForm({ ...guestForm, checkout_time: e.target.value })}
                   />
                 </div>
               </div>
+
               <label>Purpose (optional)</label>
               <input
                 type="text"
                 placeholder="e.g. Family visit"
-                value={form.purpose}
-                onChange={(e) => setForm({ ...form, purpose: e.target.value })}
+                value={guestForm.purpose}
+                onChange={(e) => setGuestForm({ ...guestForm, purpose: e.target.value })}
               />
-              {formError && <div className="error-text">{formError}</div>}
-              <button className="btn btn-primary" disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Submit for approval'}
+              {guestError && <div className="error-text">{guestError}</div>}
+              <button className="btn btn-primary" disabled={guestSubmitting}>
+                {guestSubmitting ? 'Submitting…' : 'Submit for approval'}
+              </button>
+            </form>
+          </div>
+
+          <div className="card">
+            <h2>Submit a Work Permit</h2>
+            <form onSubmit={submitPermit}>
+              <label>Worker Name(s)</label>
+              <input
+                type="text"
+                placeholder="e.g. Juan Cruz, Pedro Reyes"
+                value={permitForm.worker_names}
+                onChange={(e) => setPermitForm({ ...permitForm, worker_names: e.target.value })}
+              />
+              <label>Company (optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. ABC Renovation Services"
+                value={permitForm.company}
+                onChange={(e) => setPermitForm({ ...permitForm, company: e.target.value })}
+              />
+              <label>Purpose of Work</label>
+              <input
+                type="text"
+                placeholder="e.g. Bathroom renovation"
+                value={permitForm.purpose}
+                onChange={(e) => setPermitForm({ ...permitForm, purpose: e.target.value })}
+              />
+              <div className="two-col">
+                <div>
+                  <label>Valid From</label>
+                  <input
+                    type="date"
+                    value={permitForm.valid_from}
+                    onChange={(e) => setPermitForm({ ...permitForm, valid_from: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Valid To</label>
+                  <input
+                    type="date"
+                    value={permitForm.valid_to}
+                    onChange={(e) => setPermitForm({ ...permitForm, valid_to: e.target.value })}
+                  />
+                </div>
+              </div>
+              {permitError && <div className="error-text">{permitError}</div>}
+              <button className="btn btn-primary" disabled={permitSubmitting}>
+                {permitSubmitting ? 'Submitting…' : 'Submit for approval'}
               </button>
             </form>
           </div>
@@ -245,6 +414,30 @@ export default function OwnerDashboard({ profile }) {
             ) : (
               <div className="empty">Nothing scheduled.</div>
             )}
+          </div>
+
+          <div className="card">
+            <h2>Your Work Permits</h2>
+            {permits.length === 0 && <div className="empty">No permits submitted yet.</div>}
+            {permits.map((p) => (
+              <div className="list-item" key={p.id}>
+                <div>
+                  <div className="title">
+                    {p.worker_names}{' '}
+                    <span className={`badge ${p.status === 'approved' ? 'paid' : p.status === 'rejected' ? 'overdue' : 'unpaid'}`}>
+                      {p.status}
+                    </span>
+                  </div>
+                  <div className="meta">
+                    {p.tower}, Unit {p.unit_number} · {p.purpose}
+                    <br />
+                    {new Date(p.valid_from + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {' → '}
+                    {new Date(p.valid_to + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

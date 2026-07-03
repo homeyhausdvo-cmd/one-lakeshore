@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import Ticket from '../components/Ticket'
+import GuestCheckPanel from '../components/GuestCheckPanel'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -44,30 +44,19 @@ export default function FrontDesk({ profile }) {
       return
     }
     setSearching(true)
-    const timeout = setTimeout(async () => {
-      const { data } = await supabase
-        .from('guests')
-        .select('*, units!inner(unit_number)')
-        .or(`guest_name.ilike.%${q}%,units.unit_number.ilike.%${q}%`)
-        .order('created_at', { ascending: false })
-        .limit(20)
-      setResults(data || [])
-      setSearching(false)
-    }, 300)
+    const timeout = setTimeout(() => runSearch(q), 300)
     return () => clearTimeout(timeout)
   }, [query])
 
-  async function checkIn(id) {
-    await supabase
+  async function runSearch(q) {
+    const { data } = await supabase
       .from('guests')
-      .update({ checked_in_at: new Date().toISOString(), checked_in_by: profile.id })
-      .eq('id', id)
-    loadToday()
-    setResults((prev) =>
-      prev.map((g) =>
-        g.id === id ? { ...g, checked_in_at: new Date().toISOString(), checked_in_by: profile.id } : g
-      )
-    )
+      .select('*, units!inner(unit_number)')
+      .or(`guest_name.ilike.%${q}%,units.unit_number.ilike.%${q}%`)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setResults(data || [])
+    setSearching(false)
   }
 
   async function checkInWorker(id) {
@@ -107,52 +96,10 @@ export default function FrontDesk({ profile }) {
             })}
           </span>
         </h2>
-        <div className="checkin-table">
-          <div className="checkin-row checkin-head">
-            <div>Unit</div>
-            <div>Guest</div>
-            <div>Expected</div>
-            <div>Status</div>
-            <div></div>
-          </div>
-          {todayGuests.length === 0 && <div className="empty">No guests expected today.</div>}
-          {todayGuests.map((g) => (
-            <div className="checkin-row" key={g.id}>
-              <div className="unit-code">{g.units?.unit_number || '—'}</div>
-              <div className="guest">{g.guest_name}</div>
-              <div className="time">Today</div>
-              <div>
-                {g.status !== 'approved' ? (
-                  <span className="status-pill notapproved">
-                    <span className="dot"></span>
-                    {g.status === 'pending' ? 'Awaiting approval' : 'Rejected'}
-                  </span>
-                ) : g.checked_in_at ? (
-                  <span className="status-pill arrived">
-                    <span className="dot"></span>
-                    Checked in{' '}
-                    {new Date(g.checked_in_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                ) : (
-                  <span className="status-pill waiting">
-                    <span className="dot"></span>
-                    Not yet
-                  </span>
-                )}
-              </div>
-              <div>
-                {g.status === 'approved' && !g.checked_in_at && (
-                  <button className="btn-small" onClick={() => checkIn(g.id)}>
-                    Check in
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        {todayGuests.length === 0 && <div className="empty">No guests expected today.</div>}
+        {todayGuests.map((g) => (
+          <GuestCheckPanel key={g.id} guest={g} unitLabel={g.units?.unit_number} onRefresh={loadToday} profile={profile} />
+        ))}
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
@@ -211,12 +158,12 @@ export default function FrontDesk({ profile }) {
         <div className="empty">No matching guest or unit found.</div>
       )}
       {results.map((g) => (
-        <Ticket
+        <GuestCheckPanel
           key={g.id}
           guest={g}
           unitLabel={g.units?.unit_number}
-          checkinAction
-          onCheckIn={checkIn}
+          onRefresh={() => runSearch(query.trim())}
+          profile={profile}
         />
       ))}
     </div>
