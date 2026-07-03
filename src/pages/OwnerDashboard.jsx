@@ -3,7 +3,8 @@ import { supabase } from '../supabaseClient'
 import Ticket from '../components/Ticket'
 
 export default function OwnerDashboard({ profile }) {
-  const [unit, setUnit] = useState(null)
+  const [units, setUnits] = useState([])
+  const [selectedUnitId, setSelectedUnitId] = useState(null)
   const [bills, setBills] = useState([])
   const [announcements, setAnnouncements] = useState([])
   const [maintenance, setMaintenance] = useState([])
@@ -12,31 +13,29 @@ export default function OwnerDashboard({ profile }) {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
-  async function loadAll() {
-    const { data: unitData } = await supabase
+  async function loadUnits() {
+    const { data } = await supabase
       .from('units')
       .select('*')
       .eq('owner_id', profile.id)
-      .maybeSingle()
-    setUnit(unitData)
-
-    if (unitData) {
-      const [{ data: billsData }, { data: guestsData }] = await Promise.all([
-        supabase
-          .from('hoa_bills')
-          .select('*')
-          .eq('unit_id', unitData.id)
-          .order('due_date', { ascending: false }),
-        supabase
-          .from('guests')
-          .select('*')
-          .eq('unit_id', unitData.id)
-          .order('created_at', { ascending: false }),
-      ])
-      setBills(billsData || [])
-      setGuests(guestsData || [])
+      .order('unit_number')
+    setUnits(data || [])
+    if (data && data.length > 0 && !selectedUnitId) {
+      setSelectedUnitId(data[0].id)
     }
+  }
 
+  async function loadUnitData(unitId) {
+    if (!unitId) return
+    const [{ data: billsData }, { data: guestsData }] = await Promise.all([
+      supabase.from('hoa_bills').select('*').eq('unit_id', unitId).order('due_date', { ascending: false }),
+      supabase.from('guests').select('*').eq('unit_id', unitId).order('created_at', { ascending: false }),
+    ])
+    setBills(billsData || [])
+    setGuests(guestsData || [])
+  }
+
+  async function loadBuildingWide() {
     const [{ data: annData }, { data: maintData }] = await Promise.all([
       supabase
         .from('announcements')
@@ -56,15 +55,20 @@ export default function OwnerDashboard({ profile }) {
   }
 
   useEffect(() => {
-    loadAll()
+    loadUnits()
+    loadBuildingWide()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (selectedUnitId) loadUnitData(selectedUnitId)
+  }, [selectedUnitId])
 
   async function submitGuest(e) {
     e.preventDefault()
     setFormError('')
-    if (!unit) {
-      setFormError('No unit is linked to your account yet. Contact the admin.')
+    if (!selectedUnitId) {
+      setFormError('No unit selected.')
       return
     }
     if (!form.guest_name || !form.valid_from || !form.valid_to) {
@@ -73,7 +77,7 @@ export default function OwnerDashboard({ profile }) {
     }
     setSubmitting(true)
     const { error } = await supabase.from('guests').insert({
-      unit_id: unit.id,
+      unit_id: selectedUnitId,
       submitted_by: profile.id,
       guest_name: form.guest_name,
       valid_from: form.valid_from,
@@ -86,19 +90,50 @@ export default function OwnerDashboard({ profile }) {
       return
     }
     setForm({ guest_name: '', valid_from: '', valid_to: '', purpose: '' })
-    loadAll()
+    loadUnitData(selectedUnitId)
   }
 
+  const selectedUnit = units.find((u) => u.id === selectedUnitId)
   const latestBill = bills[0]
+
+  if (units.length === 0) {
+    return (
+      <div>
+        <div className="view-header">
+          <div className="eyebrow">Owner Portal</div>
+          <h1>Welcome back, {profile.full_name}</h1>
+          <div className="subtext">No unit linked to your account yet. Contact the admin.</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
       <div className="view-header">
         <div className="eyebrow">Owner Portal</div>
         <h1>Welcome back, {profile.full_name}</h1>
-        <div className="subtext">
-          {unit ? `Unit ${unit.unit_number}${unit.building ? ' · ' + unit.building : ''}` : 'No unit linked yet'}
-        </div>
+        {units.length > 1 ? (
+          <div style={{ marginTop: 10 }}>
+            <select
+              style={{ width: 260 }}
+              value={selectedUnitId || ''}
+              onChange={(e) => setSelectedUnitId(e.target.value)}
+            >
+              {units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  Unit {u.unit_number}
+                  {u.building ? ` · ${u.building}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="subtext">
+            Unit {selectedUnit?.unit_number}
+            {selectedUnit?.building ? ` · ${selectedUnit.building}` : ''}
+          </div>
+        )}
       </div>
 
       <div className="grid2">
@@ -215,9 +250,11 @@ export default function OwnerDashboard({ profile }) {
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
-        <h2>Your Guest Submissions</h2>
+        <h2>
+          Guest Submissions {selectedUnit ? `— Unit ${selectedUnit.unit_number}` : ''}
+        </h2>
         {guests.length ? (
-          guests.map((g) => <Ticket key={g.id} guest={g} unitLabel={unit?.unit_number} />)
+          guests.map((g) => <Ticket key={g.id} guest={g} unitLabel={selectedUnit?.unit_number} />)
         ) : (
           <div className="empty">No guest submissions yet.</div>
         )}
