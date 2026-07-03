@@ -27,23 +27,32 @@ export default function Register({ onDone }) {
       return
     }
     setSubmitting(true)
-    const { error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          full_name: form.full_name,
-          tower: form.tower,
-          unit_number: form.unit_number,
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.full_name,
+            tower: form.tower,
+            unit_number: form.unit_number,
+          },
         },
-      },
-    })
-    setSubmitting(false)
-    if (error) {
-      setError(error.message)
-      return
+      })
+      setSubmitting(false)
+      if (error) {
+        setError(
+          error.message === 'User already registered'
+            ? 'This email is already registered. Try signing in instead, or contact the property admin.'
+            : error.message || 'Something went wrong. Please try again or contact the property admin.'
+        )
+        return
+      }
+      setDone(true)
+    } catch (err) {
+      setSubmitting(false)
+      setError('Something went wrong. Please try again or contact the property admin.')
     }
-    setDone(true)
   }
 
   if (done) {
@@ -53,8 +62,9 @@ export default function Register({ onDone }) {
           <div className="brand" style={{ color: 'var(--primary)' }}>One Lakeshore</div>
           <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 18 }}>Registration submitted</h2>
           <p className="subtext" style={{ marginTop: 10 }}>
-            Your details are being reviewed against our unit records. You'll be able to sign in
-            once an admin approves your registration.
+            Your details are being reviewed against our unit records. Please allow 4–6 hours for
+            your account to be activated. You'll be able to sign in once approved — if it takes
+            longer, please contact the property admin.
           </p>
           <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={onDone}>
             Back to sign in
