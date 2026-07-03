@@ -6,6 +6,7 @@ import ManagerRegister from './pages/ManagerRegister'
 import OwnerDashboard from './pages/OwnerDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import FrontDesk from './pages/FrontDesk'
+import ManagerDashboard from './pages/ManagerDashboard'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -131,13 +132,7 @@ export default function App() {
         {activeView === 'owner' && <OwnerDashboard profile={profile} />}
         {activeView === 'admin' && <AdminDashboard profile={profile} />}
         {activeView === 'frontdesk' && <FrontDesk profile={profile} />}
-        {activeView === 'manager' && (
-          <div className="view-header">
-            <div className="eyebrow">Manager</div>
-            <h1>Manager Dashboard</h1>
-            <div className="subtext">Coming in the next step — this will show your approved units.</div>
-          </div>
-        )}
+        {activeView === 'manager' && <ManagerDashboard profile={profile} />}
       </div>
     </div>
   )

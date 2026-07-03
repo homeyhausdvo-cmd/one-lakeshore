@@ -8,6 +8,7 @@ function todayStr() {
 
 export default function FrontDesk({ profile }) {
   const [todayGuests, setTodayGuests] = useState([])
+  const [permits, setPermits] = useState([])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -21,8 +22,19 @@ export default function FrontDesk({ profile }) {
     setTodayGuests(data || [])
   }
 
+  async function loadPermits() {
+    const { data } = await supabase
+      .from('work_permits')
+      .select('*')
+      .eq('status', 'approved')
+      .gte('valid_to', todayStr())
+      .order('valid_from', { ascending: true })
+    setPermits(data || [])
+  }
+
   useEffect(() => {
     loadToday()
+    loadPermits()
   }, [])
 
   useEffect(() => {
@@ -56,6 +68,14 @@ export default function FrontDesk({ profile }) {
         g.id === id ? { ...g, checked_in_at: new Date().toISOString(), checked_in_by: profile.id } : g
       )
     )
+  }
+
+  async function checkInWorker(id) {
+    await supabase
+      .from('work_permits')
+      .update({ checked_in_at: new Date().toISOString(), checked_in_by: profile.id })
+      .eq('id', id)
+    loadPermits()
   }
 
   return (
@@ -133,6 +153,39 @@ export default function FrontDesk({ profile }) {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h2>Active Work Permits</h2>
+        {permits.length === 0 && <div className="empty">No active work permits.</div>}
+        {permits.map((p) => (
+          <div className="list-item" key={p.id}>
+            <div>
+              <div className="title">{p.worker_names}</div>
+              <div className="meta">
+                {p.tower}, Unit {p.unit_number}
+                {p.company ? ` · ${p.company}` : ''}
+                {p.purpose ? ` · ${p.purpose}` : ''}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                {p.checked_in_at ? (
+                  <span className="status-pill arrived">
+                    <span className="dot"></span>
+                    Checked in{' '}
+                    {new Date(p.checked_in_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                ) : (
+                  <button className="btn-small" onClick={() => checkInWorker(p.id)}>
+                    Check in
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="view-header" style={{ marginBottom: 16 }}>
