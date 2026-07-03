@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 
-export default function Login() {
+export default function Login({ onRegister }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -47,6 +47,14 @@ export default function Login() {
         {error && <div className="error-text">{error}</div>}
         <button className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
+        </button>
+        <button
+          type="button"
+          className="link-btn"
+          style={{ marginTop: 14, display: 'block', textAlign: 'center', width: '100%' }}
+          onClick={onRegister}
+        >
+          New resident? Register here
         </button>
       </form>
     </div>

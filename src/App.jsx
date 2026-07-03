@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import OwnerDashboard from './pages/OwnerDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import FrontDesk from './pages/FrontDesk'
@@ -10,6 +11,7 @@ export default function App() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeView, setActiveView] = useState(null)
+  const [showRegister, setShowRegister] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,7 +53,43 @@ export default function App() {
   }
 
   if (!session || !profile) {
-    return <Login />
+    return showRegister ? (
+      <Register onDone={() => setShowRegister(false)} />
+    ) : (
+      <Login onRegister={() => setShowRegister(true)} />
+    )
+  }
+
+  // Gate access for owners whose registration hasn't been approved yet
+  if (profile.role === 'owner' && profile.approval_status !== 'approved') {
+    return (
+      <div className="login-wrap">
+        <div className="login-card" style={{ textAlign: 'center' }}>
+          <div className="brand" style={{ color: 'var(--primary)' }}>One Lakeshore</div>
+          {profile.approval_status === 'pending' ? (
+            <>
+              <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 18 }}>Registration pending</h2>
+              <p className="subtext" style={{ marginTop: 10 }}>
+                Your registration for Unit {profile.requested_unit_number} ({profile.requested_tower})
+                is being reviewed. You'll get access once it's approved.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 18, color: 'var(--red)' }}>
+                Registration not approved
+              </h2>
+              <p className="subtext" style={{ marginTop: 10 }}>
+                Please contact building management to resolve this.
+              </p>
+            </>
+          )}
+          <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={() => supabase.auth.signOut()}>
+            Sign out
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const canSwitch = profile.role === 'admin'
@@ -65,16 +103,10 @@ export default function App() {
         </div>
         {canSwitch && (
           <div className="nav-links">
-            <button
-              className={activeView === 'admin' ? 'active' : ''}
-              onClick={() => setActiveView('admin')}
-            >
+            <button className={activeView === 'admin' ? 'active' : ''} onClick={() => setActiveView('admin')}>
               Admin View
             </button>
-            <button
-              className={activeView === 'frontdesk' ? 'active' : ''}
-              onClick={() => setActiveView('frontdesk')}
-            >
+            <button className={activeView === 'frontdesk' ? 'active' : ''} onClick={() => setActiveView('frontdesk')}>
               Front Desk View
             </button>
           </div>
