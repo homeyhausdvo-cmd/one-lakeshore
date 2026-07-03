@@ -8,7 +8,6 @@ export default function Register({ onDone }) {
     full_name: '',
     email: '',
     password: '',
-    address: '',
     tower: TOWERS[0],
     unit_number: '',
   })
@@ -34,7 +33,6 @@ export default function Register({ onDone }) {
       options: {
         data: {
           full_name: form.full_name,
-          address: form.address,
           tower: form.tower,
           unit_number: form.unit_number,
         },
@@ -84,9 +82,6 @@ export default function Register({ onDone }) {
 
         <label>Password</label>
         <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-
-        <label>Address</label>
-        <input type="text" placeholder="Your billing/contact address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
 
         <div className="two-col">
           <div>
