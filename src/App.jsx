@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ManagerRegister from './pages/ManagerRegister'
 import OwnerDashboard from './pages/OwnerDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import FrontDesk from './pages/FrontDesk'
@@ -11,7 +12,7 @@ export default function App() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeView, setActiveView] = useState(null)
-  const [showRegister, setShowRegister] = useState(false)
+  const [authScreen, setAuthScreen] = useState('login') // 'login' | 'register' | 'managerRegister'
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -53,10 +54,17 @@ export default function App() {
   }
 
   if (!session || !profile) {
-    return showRegister ? (
-      <Register onDone={() => setShowRegister(false)} />
-    ) : (
-      <Login onRegister={() => setShowRegister(true)} />
+    if (authScreen === 'register') {
+      return <Register onDone={() => setAuthScreen('login')} />
+    }
+    if (authScreen === 'managerRegister') {
+      return <ManagerRegister onDone={() => setAuthScreen('login')} />
+    }
+    return (
+      <Login
+        onRegister={() => setAuthScreen('register')}
+        onManagerRegister={() => setAuthScreen('managerRegister')}
+      />
     )
   }
 
@@ -123,6 +131,13 @@ export default function App() {
         {activeView === 'owner' && <OwnerDashboard profile={profile} />}
         {activeView === 'admin' && <AdminDashboard profile={profile} />}
         {activeView === 'frontdesk' && <FrontDesk profile={profile} />}
+        {activeView === 'manager' && (
+          <div className="view-header">
+            <div className="eyebrow">Manager</div>
+            <h1>Manager Dashboard</h1>
+            <div className="subtext">Coming in the next step — this will show your approved units.</div>
+          </div>
+        )}
       </div>
     </div>
   )
