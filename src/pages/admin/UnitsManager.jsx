@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 
 const TOWERS = ['Tower 1', 'Tower 2', 'Tower 3', 'Tower 4']
@@ -7,6 +7,12 @@ const OCCUPANCY_LABELS = {
   owner_occupied: 'Owner-occupied',
   long_term_tenant: 'Long-term tenant',
   str: 'STR (short-term rental)',
+}
+
+// Unit numbers like "6P" or "14B" start with the floor number
+function getFloor(unitNumber) {
+  const match = (unitNumber || '').match(/^\d+/)
+  return match ? match[0] : null
 }
 
 export default function UnitsManager() {
@@ -20,6 +26,10 @@ export default function UnitsManager() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  const [search, setSearch] = useState('')
+  const [towerFilter, setTowerFilter] = useState('all')
+  const [floorFilter, setFloorFilter] = useState('all')
 
   async function load() {
     const { data } = await supabase.from('units').select('*').order('unit_number')
@@ -59,6 +69,24 @@ export default function UnitsManager() {
     await supabase.from('units').delete().eq('id', id)
     load()
   }
+
+  const availableFloors = useMemo(() => {
+    const scoped = towerFilter === 'all' ? units : units.filter((u) => u.building === towerFilter)
+    const floors = new Set(scoped.map((u) => getFloor(u.unit_number)).filter(Boolean))
+    return Array.from(floors).sort((a, b) => Number(a) - Number(b))
+  }, [units, towerFilter])
+
+  const filteredUnits = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return units.filter((u) => {
+      if (towerFilter !== 'all' && u.building !== towerFilter) return false
+      if (floorFilter !== 'all' && getFloor(u.unit_number) !== floorFilter) return false
+      if (q && !(u.unit_number.toLowerCase().includes(q) || (u.owner_name || '').toLowerCase().includes(q))) {
+        return false
+      }
+      return true
+    })
+  }, [units, search, towerFilter, floorFilter])
 
   return (
     <div className="grid2">
@@ -113,8 +141,46 @@ export default function UnitsManager() {
 
       <div className="card">
         <h2>All Units</h2>
-        {units.length === 0 && <div className="empty">No units yet.</div>}
-        {units.map((u) => (
+
+        <input
+          type="text"
+          placeholder="Search unit # or owner name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ marginBottom: 10 }}
+        />
+
+        <div className="two-col" style={{ marginBottom: 16 }}>
+          <div>
+            <select
+              value={towerFilter}
+              onChange={(e) => {
+                setTowerFilter(e.target.value)
+                setFloorFilter('all')
+              }}
+            >
+              <option value="all">All Towers</option>
+              {TOWERS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select value={floorFilter} onChange={(e) => setFloorFilter(e.target.value)}>
+              <option value="all">All Floors</option>
+              {availableFloors.map((f) => (
+                <option key={f} value={f}>Floor {f}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {filteredUnits.length === 0 && (
+          <div className="empty">
+            {units.length === 0 ? 'No units yet.' : 'No units match your search/filter.'}
+          </div>
+        )}
+        {filteredUnits.map((u) => (
           <div className="list-item" key={u.id}>
             <div>
               <div className="title">
