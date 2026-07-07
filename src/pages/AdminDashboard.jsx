@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import RegistrationsManager from './admin/RegistrationsManager'
-import UnitClaimsManager from './admin/UnitClaimsManager'
 import UnitsManager from './admin/UnitsManager'
 import GuestApprovals from './admin/GuestApprovals'
 import WorkPermitsManager from './admin/WorkPermitsManager'
@@ -10,7 +9,6 @@ import BillingManager from './admin/BillingManager'
 
 const TABS = [
   { key: 'registrations', label: 'Registrations' },
-  { key: 'unitclaims', label: 'Unit Requests' },
   { key: 'units', label: 'Units' },
   { key: 'guests', label: 'Guest Approvals' },
   { key: 'permits', label: 'Work Permits' },
@@ -39,7 +37,6 @@ export default function AdminDashboard({ profile }) {
       </div>
 
       {tab === 'registrations' && <RegistrationsManager />}
-      {tab === 'unitclaims' && <UnitClaimsManager />}
       {tab === 'units' && <UnitsManager />}
       {tab === 'guests' && <GuestApprovals profile={profile} />}
       {tab === 'permits' && <WorkPermitsManager profile={profile} />}
