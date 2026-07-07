@@ -163,6 +163,24 @@ input:focus, textarea:focus{ outline:2px solid var(--primary); outline-offset:1p
 .modal-box{ background:#fff; border-radius:14px; padding:26px; width:440px; max-width:92vw; max-height:88vh; overflow-y:auto; }
 .modal-box-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
 
+.avatar-circle{
+  width:36px; height:36px; border-radius:50%; background:var(--primary-light); color:var(--primary);
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;
+}
+.filter-pills{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.filter-pill{
+  padding:6px 14px; border-radius:999px; border:1px solid var(--border); background:#fff;
+  font-size:12.5px; font-weight:600; cursor:pointer; color:var(--ink-soft);
+}
+.filter-pill.active{ background:var(--primary); color:#fff; border-color:var(--primary); }
+.badge-lg{ font-size:12px; padding:5px 14px; }
+.empty-state{ text-align:center; padding:50px 20px; }
+.empty-state .icon{ font-size:36px; margin-bottom:10px; }
+.empty-state .title{ font-weight:700; font-size:15px; margin-bottom:4px; }
+.empty-state .sub{ color:var(--ink-soft); font-size:13px; }
+.reg-table-row{ display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); }
+.reg-table-row:last-child{ border-bottom:none; }
+
 .empty{ text-align:center; padding:40px 20px; color:var(--ink-soft); font-size:14px; }
 
 .stat-row{ display:flex; gap:14px; margin-bottom:22px; }
