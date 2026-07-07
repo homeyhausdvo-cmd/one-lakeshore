@@ -159,6 +159,10 @@ input:focus, textarea:focus{ outline:2px solid var(--primary); outline-offset:1p
 .occ-badge.long_term_tenant{ background:var(--green-light); color:var(--green); }
 .occ-badge.str{ background:var(--gold-light); color:var(--gold); }
 
+.modal-backdrop{ position:fixed; inset:0; background:rgba(19,36,68,0.45); display:flex; align-items:center; justify-content:center; z-index:1000; }
+.modal-box{ background:#fff; border-radius:14px; padding:26px; width:440px; max-width:92vw; max-height:88vh; overflow-y:auto; }
+.modal-box-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+
 .empty{ text-align:center; padding:40px 20px; color:var(--ink-soft); font-size:14px; }
 
 .stat-row{ display:flex; gap:14px; margin-bottom:22px; }

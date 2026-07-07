@@ -20,6 +20,8 @@ export default function UnitsManager() {
   const [billStanding, setBillStanding] = useState({})
   const [linkChoice, setLinkChoice] = useState({})
   const [editingLinkFor, setEditingLinkFor] = useState(null)
+
+  const [showAddModal, setShowAddModal] = useState(false)
   const [form, setForm] = useState({
     unit_number: '',
     owner_name: '',
@@ -78,6 +80,7 @@ export default function UnitsManager() {
       return
     }
     setForm({ unit_number: '', owner_name: '', managed_by: '', occupancy_type: 'owner_occupied', building: TOWERS[0] })
+    setShowAddModal(false)
     load()
   }
 
@@ -128,166 +131,176 @@ export default function UnitsManager() {
   }
 
   return (
-    <div className="grid2">
-      <div className="card">
-        <h2>Add a Unit</h2>
-        <form onSubmit={handleSubmit}>
-          <label>Unit #</label>
-          <input
-            type="text"
-            placeholder="e.g. 14B"
-            value={form.unit_number}
-            onChange={(e) => setForm({ ...form, unit_number: e.target.value })}
-          />
-          <label>Owner's Name</label>
-          <input
-            type="text"
-            placeholder="e.g. Juan Dela Cruz"
-            value={form.owner_name}
-            onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
-          />
-          <label>Managed by (optional)</label>
-          <input
-            type="text"
-            placeholder="e.g. Maria Santos (property manager)"
-            value={form.managed_by}
-            onChange={(e) => setForm({ ...form, managed_by: e.target.value })}
-          />
-          <label>Occupancy Type</label>
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <h2 style={{ margin: 0 }}>All Units</h2>
+        <button className="btn btn-primary" style={{ marginTop: 0 }} onClick={() => setShowAddModal(true)}>
+          + Add Unit
+        </button>
+      </div>
+
+      <input
+        type="text"
+        placeholder="Search unit # or owner name..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ marginBottom: 10 }}
+      />
+
+      <div className="two-col" style={{ marginBottom: 16, maxWidth: 480 }}>
+        <div>
           <select
-            value={form.occupancy_type}
-            onChange={(e) => setForm({ ...form, occupancy_type: e.target.value })}
+            value={towerFilter}
+            onChange={(e) => {
+              setTowerFilter(e.target.value)
+              setFloorFilter('all')
+            }}
           >
-            <option value="owner_occupied">Owner-occupied</option>
-            <option value="long_term_tenant">Long-term tenant</option>
-            <option value="str">STR (short-term rental)</option>
-          </select>
-          <label>Tower</label>
-          <select
-            value={form.building}
-            onChange={(e) => setForm({ ...form, building: e.target.value })}
-          >
+            <option value="all">All Towers</option>
             {TOWERS.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          {error && <div className="error-text">{error}</div>}
-          <button className="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add unit'}
-          </button>
-        </form>
+        </div>
+        <div>
+          <select value={floorFilter} onChange={(e) => setFloorFilter(e.target.value)}>
+            <option value="all">All Floors</option>
+            {availableFloors.map((f) => (
+              <option key={f} value={f}>Floor {f}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div className="card">
-        <h2>All Units</h2>
-
-        <input
-          type="text"
-          placeholder="Search unit # or owner name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ marginBottom: 10 }}
-        />
-
-        <div className="two-col" style={{ marginBottom: 16 }}>
-          <div>
-            <select
-              value={towerFilter}
-              onChange={(e) => {
-                setTowerFilter(e.target.value)
-                setFloorFilter('all')
-              }}
-            >
-              <option value="all">All Towers</option>
-              {TOWERS.map((t) => (
-                <option key={t} value={t}>{t}</option>
+      {filteredUnits.length === 0 ? (
+        <div className="empty">
+          {units.length === 0 ? 'No units yet.' : 'No units match your search/filter.'}
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="mini-table">
+            <thead>
+              <tr>
+                <th>Tower</th>
+                <th>Unit</th>
+                <th>Owner</th>
+                <th>Manager</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUnits.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.building}</td>
+                  <td style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{u.unit_number}</td>
+                  <td>
+                    <div>{u.owner_name}</div>
+                    {u.owner_id ? (
+                      <div style={{ fontSize: 11.5, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                        ✓ {u.profiles?.email}
+                        <span
+                          style={{ cursor: 'pointer', color: 'var(--red)', fontWeight: 700 }}
+                          onClick={() => unlinkOwner(u.id)}
+                        >
+                          ✕
+                        </span>
+                      </div>
+                    ) : editingLinkFor === u.id ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                        <select
+                          style={{ width: 170, padding: '4px 6px', fontSize: 11.5 }}
+                          value={linkChoice[u.id] || ''}
+                          onChange={(e) => setLinkChoice({ ...linkChoice, [u.id]: e.target.value })}
+                        >
+                          <option value="">Select account…</option>
+                          {ownerProfiles.map((p) => (
+                            <option key={p.id} value={p.id}>{p.full_name}</option>
+                          ))}
+                        </select>
+                        <button className="link-btn" onClick={() => linkOwner(u.id)} disabled={!linkChoice[u.id]}>
+                          OK
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="link-btn" style={{ fontSize: 11.5, marginTop: 3 }} onClick={() => setEditingLinkFor(u.id)}>
+                        + Link account
+                      </button>
+                    )}
+                  </td>
+                  <td>{u.managed_by || '—'}</td>
+                  <td>
+                    <span className={`occ-badge ${u.occupancy_type}`}>{OCCUPANCY_LABELS[u.occupancy_type]}</span>
+                  </td>
+                  <td><StandingBadge unitId={u.id} /></td>
+                  <td>
+                    <button className="icon-btn" title="Delete unit" onClick={() => remove(u.id)}>
+                      🗑
+                    </button>
+                  </td>
+                </tr>
               ))}
-            </select>
-          </div>
-          <div>
-            <select value={floorFilter} onChange={(e) => setFloorFilter(e.target.value)}>
-              <option value="all">All Floors</option>
-              {availableFloors.map((f) => (
-                <option key={f} value={f}>Floor {f}</option>
-              ))}
-            </select>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showAddModal && (
+        <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-box-header">
+              <h2 style={{ margin: 0 }}>Add a Unit</h2>
+              <button className="icon-btn" onClick={() => setShowAddModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <label>Unit #</label>
+              <input
+                type="text"
+                placeholder="e.g. 14B"
+                value={form.unit_number}
+                onChange={(e) => setForm({ ...form, unit_number: e.target.value })}
+              />
+              <label>Owner's Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Juan Dela Cruz"
+                value={form.owner_name}
+                onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
+              />
+              <label>Managed by (optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Maria Santos (property manager)"
+                value={form.managed_by}
+                onChange={(e) => setForm({ ...form, managed_by: e.target.value })}
+              />
+              <label>Occupancy Type</label>
+              <select
+                value={form.occupancy_type}
+                onChange={(e) => setForm({ ...form, occupancy_type: e.target.value })}
+              >
+                <option value="owner_occupied">Owner-occupied</option>
+                <option value="long_term_tenant">Long-term tenant</option>
+                <option value="str">STR (short-term rental)</option>
+              </select>
+              <label>Tower</label>
+              <select
+                value={form.building}
+                onChange={(e) => setForm({ ...form, building: e.target.value })}
+              >
+                {TOWERS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              {error && <div className="error-text">{error}</div>}
+              <button className="btn btn-primary" disabled={submitting} style={{ width: '100%' }}>
+                {submitting ? 'Adding…' : 'Add unit'}
+              </button>
+            </form>
           </div>
         </div>
-
-        {filteredUnits.length === 0 ? (
-          <div className="empty">
-            {units.length === 0 ? 'No units yet.' : 'No units match your search/filter.'}
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="mini-table">
-              <thead>
-                <tr>
-                  <th>Tower</th>
-                  <th>Unit</th>
-                  <th>Owner</th>
-                  <th>Manager</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUnits.map((u) => (
-                  <tr key={u.id}>
-                    <td>{u.building}</td>
-                    <td style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{u.unit_number}</td>
-                    <td>
-                      <div>{u.owner_name}</div>
-                      {u.owner_id ? (
-                        <div style={{ fontSize: 11.5, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                          ✓ {u.profiles?.email}
-                          <span
-                            style={{ cursor: 'pointer', color: 'var(--red)', fontWeight: 700 }}
-                            onClick={() => unlinkOwner(u.id)}
-                          >
-                            ✕
-                          </span>
-                        </div>
-                      ) : editingLinkFor === u.id ? (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
-                          <select
-                            style={{ width: 170, padding: '4px 6px', fontSize: 11.5 }}
-                            value={linkChoice[u.id] || ''}
-                            onChange={(e) => setLinkChoice({ ...linkChoice, [u.id]: e.target.value })}
-                          >
-                            <option value="">Select account…</option>
-                            {ownerProfiles.map((p) => (
-                              <option key={p.id} value={p.id}>{p.full_name}</option>
-                            ))}
-                          </select>
-                          <button className="link-btn" onClick={() => linkOwner(u.id)} disabled={!linkChoice[u.id]}>
-                            OK
-                          </button>
-                        </div>
-                      ) : (
-                        <button className="link-btn" style={{ fontSize: 11.5, marginTop: 3 }} onClick={() => setEditingLinkFor(u.id)}>
-                          + Link account
-                        </button>
-                      )}
-                    </td>
-                    <td>{u.managed_by || '—'}</td>
-                    <td>
-                      <span className={`occ-badge ${u.occupancy_type}`}>{OCCUPANCY_LABELS[u.occupancy_type]}</span>
-                    </td>
-                    <td><StandingBadge unitId={u.id} /></td>
-                    <td>
-                      <button className="icon-btn" title="Delete unit" onClick={() => remove(u.id)}>
-                        🗑
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

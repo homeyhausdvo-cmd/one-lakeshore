@@ -1,10 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import Ticket from '../../components/Ticket'
+
+function monthKey(dateStr) {
+  return (dateStr || '').slice(0, 7) // "YYYY-MM"
+}
+
+function monthLabel(key) {
+  const [y, m] = key.split('-')
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
 
 export default function GuestApprovals({ profile }) {
   const [guests, setGuests] = useState([])
   const [unpaidCount, setUnpaidCount] = useState(0)
+  const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date().toISOString()))
 
   async function loadAll() {
     const { data: guestsData } = await supabase
@@ -33,7 +43,15 @@ export default function GuestApprovals({ profile }) {
   }
 
   const pending = guests.filter((g) => g.status === 'pending')
-  const reviewed = guests.filter((g) => g.status !== 'pending')
+  const reviewedAll = guests.filter((g) => g.status !== 'pending')
+
+  const availableMonths = useMemo(() => {
+    const keys = new Set(reviewedAll.map((g) => monthKey(g.valid_from)))
+    return Array.from(keys).sort().reverse()
+  }, [reviewedAll])
+
+  const reviewedForMonth = reviewedAll.filter((g) => monthKey(g.valid_from) === selectedMonth)
+
   const approvedThisMonth = guests.filter((g) => {
     if (g.status !== 'approved' || !g.reviewed_at) return false
     const d = new Date(g.reviewed_at)
@@ -76,15 +94,25 @@ export default function GuestApprovals({ profile }) {
         </>
       )}
 
-      {reviewed.length > 0 && (
-        <>
-          <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 15, margin: '20px 0 10px 0' }}>
-            Reviewed
-          </h2>
-          {reviewed.map((g) => (
-            <Ticket key={g.id} guest={g} unitLabel={g.units?.unit_number} />
-          ))}
-        </>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 10px' }}>
+        <h2 style={{ fontFamily: 'Fraunces, serif', fontSize: 15, margin: 0 }}>Reviewed History</h2>
+        {availableMonths.length > 0 && (
+          <select
+            style={{ width: 200 }}
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+          >
+            {availableMonths.map((k) => (
+              <option key={k} value={k}>{monthLabel(k)}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {reviewedForMonth.length === 0 ? (
+        <div className="empty">No reviewed guests for this month.</div>
+      ) : (
+        reviewedForMonth.map((g) => <Ticket key={g.id} guest={g} unitLabel={g.units?.unit_number} />)
       )}
 
       {guests.length === 0 && <div className="empty">No submissions yet.</div>}
