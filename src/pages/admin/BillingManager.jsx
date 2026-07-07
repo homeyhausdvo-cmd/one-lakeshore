@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
 
+const BILL_TYPES = [
+  { value: 'hoa', label: 'HOA Dues' },
+  { value: 'electric', label: 'Electric Bill' },
+  { value: 'water', label: 'Water Bill' },
+]
+
 export default function BillingManager() {
   const [units, setUnits] = useState([])
   const [bills, setBills] = useState([])
   const [filterUnit, setFilterUnit] = useState('')
   const [form, setForm] = useState({
     unit_id: '',
+    bill_type: 'hoa',
     period_label: '',
     amount: '',
     due_date: '',
@@ -40,6 +47,7 @@ export default function BillingManager() {
     setSubmitting(true)
     const { error } = await supabase.from('hoa_bills').insert({
       unit_id: form.unit_id,
+      bill_type: form.bill_type,
       period_label: form.period_label.trim(),
       amount: Number(form.amount),
       due_date: form.due_date,
@@ -49,7 +57,7 @@ export default function BillingManager() {
       setError(error.message)
       return
     }
-    setForm({ unit_id: '', period_label: '', amount: '', due_date: '' })
+    setForm({ unit_id: '', bill_type: 'hoa', period_label: '', amount: '', due_date: '' })
     load()
   }
 
@@ -73,6 +81,7 @@ export default function BillingManager() {
   }
 
   const visibleBills = filterUnit ? bills.filter((b) => b.unit_id === filterUnit) : bills
+  const typeLabel = (t) => BILL_TYPES.find((bt) => bt.value === t)?.label || t
 
   return (
     <div className="grid2">
@@ -86,6 +95,12 @@ export default function BillingManager() {
               <option key={u.id} value={u.id}>
                 {u.unit_number}
               </option>
+            ))}
+          </select>
+          <label>Bill Type</label>
+          <select value={form.bill_type} onChange={(e) => setForm({ ...form, bill_type: e.target.value })}>
+            {BILL_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
           <label>Period</label>
@@ -147,7 +162,7 @@ export default function BillingManager() {
                   {b.units?.unit_number}
                 </td>
                 <td>
-                  {b.period_label}
+                  {typeLabel(b.bill_type)} — {b.period_label}
                   <br />
                   <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
                     ₱{Number(b.amount).toLocaleString()} · due{' '}

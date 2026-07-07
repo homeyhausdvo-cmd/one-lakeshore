@@ -3,8 +3,19 @@ import { supabase } from '../supabaseClient'
 import Ticket from '../components/Ticket'
 
 const TOWERS = ['Tower 1', 'Tower 2', 'Tower 3', 'Tower 4']
+const BILL_TYPES = [
+  { value: 'hoa', label: 'HOA Dues' },
+  { value: 'electric', label: 'Electric Bill' },
+  { value: 'water', label: 'Water Bill' },
+]
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 export default function OwnerDashboard({ profile }) {
+  const [activeTab, setActiveTab] = useState('dashboard')
+
   const [units, setUnits] = useState([])
   const [selectedUnitId, setSelectedUnitId] = useState(null)
   const [bills, setBills] = useState([])
@@ -104,13 +115,14 @@ export default function OwnerDashboard({ profile }) {
   }, [selectedUnitId])
 
   const selectedUnit = units.find((u) => u.id === selectedUnitId)
-  const latestBill = bills[0]
 
   const additionalNamesList = guestForm.additional_names
     .split('\n')
     .map((n) => n.trim())
     .filter(Boolean)
   const totalGuestCount = (guestForm.guest_name.trim() ? 1 : 0) + additionalNamesList.length
+
+  const guestsToday = guests.filter((g) => g.valid_from === todayStr())
 
   async function submitGuest(e) {
     e.preventDefault()
@@ -305,29 +317,157 @@ export default function OwnerDashboard({ profile }) {
         </div>
       )}
 
-      <div className="grid2">
-        <div className="stack">
-          <div className="card">
-            <h2>HOA Dues</h2>
-            {latestBill ? (
-              <>
-                <div className="dues-row">
-                  <div className="dues-amount">₱{Number(latestBill.amount).toLocaleString()}</div>
-                  <span className={`badge ${latestBill.status}`}>{latestBill.status}</span>
+      <div className="subtabs">
+        <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
+          Dashboard
+        </button>
+        <button className={activeTab === 'billing' ? 'active' : ''} onClick={() => setActiveTab('billing')}>
+          Billing
+        </button>
+        <button className={activeTab === 'forms' ? 'active' : ''} onClick={() => setActiveTab('forms')}>
+          Forms
+        </button>
+        <button className={activeTab === 'guestlist' ? 'active' : ''} onClick={() => setActiveTab('guestlist')}>
+          Guest List
+        </button>
+      </div>
+
+      {activeTab === 'dashboard' && (
+        <div className="grid2">
+          <div className="stack">
+            <div className="card">
+              <h2>Guests Checking In Today</h2>
+              {guestsToday.length === 0 && <div className="empty">No guests expected today.</div>}
+              {guestsToday.map((g) => (
+                <Ticket key={g.id} guest={g} unitLabel={selectedUnit?.unit_number} />
+              ))}
+            </div>
+
+            <div className="card">
+              <h2>Your Work Permits</h2>
+              {permits.length === 0 && <div className="empty">No permits submitted yet.</div>}
+              {permits.map((p) => (
+                <div className="list-item" key={p.id}>
+                  <div>
+                    <div className="title">
+                      {p.worker_names}{' '}
+                      <span className={`badge ${p.status === 'approved' ? 'paid' : p.status === 'rejected' ? 'overdue' : 'unpaid'}`}>
+                        {p.status}
+                      </span>
+                    </div>
+                    <div className="meta">
+                      {p.tower}, Unit {p.unit_number} · {p.purpose}
+                      <br />
+                      {new Date(p.valid_from + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {' → '}
+                      {new Date(p.valid_to + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
                 </div>
-                <div className="dues-meta">
-                  For {latestBill.period_label} · Due{' '}
-                  {new Date(latestBill.due_date + 'T00:00:00').toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="empty">No bills on record.</div>
-            )}
+              ))}
+            </div>
           </div>
 
+          <div className="stack">
+            <div className="card">
+              <h2>Announcements</h2>
+              {announcements.length ? (
+                announcements.map((a) => (
+                  <div className="list-item" key={a.id}>
+                    <div>
+                      <div className="title">
+                        {a.title}
+                        {a.pinned && <span className="pin">PINNED</span>}
+                      </div>
+                      <div className="meta">{a.body}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty">No announcements yet.</div>
+              )}
+            </div>
+
+            <div className="card">
+              <h2>Maintenance Schedule</h2>
+              {maintenance.length ? (
+                maintenance.map((m) => (
+                  <div className="list-item" key={m.id}>
+                    <div>
+                      <div className="title">{m.title}</div>
+                      <div className="meta">
+                        {m.area}
+                        {m.scheduled_time ? `, ${m.scheduled_time}` : ''}
+                      </div>
+                    </div>
+                    <div className="date-chip">
+                      {new Date(m.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty">Nothing scheduled.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'billing' && (
+        <div className="stack">
+          {BILL_TYPES.map((bt) => {
+            const typeBills = bills.filter((b) => b.bill_type === bt.value)
+            const latest = typeBills[0]
+            return (
+              <div className="card" key={bt.value}>
+                <h2>{bt.label}</h2>
+                {latest ? (
+                  <>
+                    <div className="dues-row">
+                      <div className="dues-amount">₱{Number(latest.amount).toLocaleString()}</div>
+                      <span className={`badge ${latest.status}`}>{latest.status}</span>
+                    </div>
+                    <div className="dues-meta">
+                      For {latest.period_label} · Due{' '}
+                      {new Date(latest.due_date + 'T00:00:00').toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </div>
+                    {typeBills.length > 1 && (
+                      <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                        {typeBills.slice(1).map((b) => (
+                          <div className="list-item" key={b.id}>
+                            <div>
+                              <div className="title">{b.period_label}</div>
+                              <div className="meta">
+                                ₱{Number(b.amount).toLocaleString()} · due{' '}
+                                {new Date(b.due_date + 'T00:00:00').toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </div>
+                            </div>
+                            <span className={`badge ${b.status}`}>{b.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="empty">No {bt.label.toLowerCase()} on record.</div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {activeTab === 'forms' && (
+        <div className="grid2">
           <div className="card">
             <h2>Submit a Guest</h2>
             <form onSubmit={submitGuest}>
@@ -458,88 +598,23 @@ export default function OwnerDashboard({ profile }) {
             </form>
           </div>
         </div>
+      )}
 
-        <div className="stack">
-          <div className="card">
-            <h2>Announcements</h2>
-            {announcements.length ? (
-              announcements.map((a) => (
-                <div className="list-item" key={a.id}>
-                  <div>
-                    <div className="title">
-                      {a.title}
-                      {a.pinned && <span className="pin">PINNED</span>}
-                    </div>
-                    <div className="meta">{a.body}</div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="empty">No announcements yet.</div>
-            )}
+      {activeTab === 'guestlist' && (
+        <div className="card">
+          <h2>
+            Guest List {selectedUnit ? `— Unit ${selectedUnit.unit_number}` : ''}
+          </h2>
+          <div className="subtext" style={{ marginTop: -6, marginBottom: 16 }}>
+            Full history — including check-in/out timestamps and any unregistered guest reports from front desk
           </div>
-
-          <div className="card">
-            <h2>Maintenance Schedule</h2>
-            {maintenance.length ? (
-              maintenance.map((m) => (
-                <div className="list-item" key={m.id}>
-                  <div>
-                    <div className="title">{m.title}</div>
-                    <div className="meta">
-                      {m.area}
-                      {m.scheduled_time ? `, ${m.scheduled_time}` : ''}
-                    </div>
-                  </div>
-                  <div className="date-chip">
-                    {new Date(m.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="empty">Nothing scheduled.</div>
-            )}
-          </div>
-
-          <div className="card">
-            <h2>Your Work Permits</h2>
-            {permits.length === 0 && <div className="empty">No permits submitted yet.</div>}
-            {permits.map((p) => (
-              <div className="list-item" key={p.id}>
-                <div>
-                  <div className="title">
-                    {p.worker_names}{' '}
-                    <span className={`badge ${p.status === 'approved' ? 'paid' : p.status === 'rejected' ? 'overdue' : 'unpaid'}`}>
-                      {p.status}
-                    </span>
-                  </div>
-                  <div className="meta">
-                    {p.tower}, Unit {p.unit_number} · {p.purpose}
-                    <br />
-                    {new Date(p.valid_from + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    {' → '}
-                    {new Date(p.valid_to + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {guests.length ? (
+            guests.map((g) => <Ticket key={g.id} guest={g} unitLabel={selectedUnit?.unit_number} />)
+          ) : (
+            <div className="empty">No guest submissions yet.</div>
+          )}
         </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 20 }}>
-        <h2>
-          Guest Submissions {selectedUnit ? `— Unit ${selectedUnit.unit_number}` : ''}
-        </h2>
-        {guests.length ? (
-          guests.map((g) => <Ticket key={g.id} guest={g} unitLabel={selectedUnit?.unit_number} />)
-        ) : (
-          <div className="empty">No guest submissions yet.</div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
