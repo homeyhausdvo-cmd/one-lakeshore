@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import Ticket from '../components/Ticket'
 
+const TOWERS = ['Tower 1', 'Tower 2', 'Tower 3', 'Tower 4']
+
 export default function OwnerDashboard({ profile }) {
   const [units, setUnits] = useState([])
   const [selectedUnitId, setSelectedUnitId] = useState(null)
@@ -33,6 +35,12 @@ export default function OwnerDashboard({ profile }) {
   })
   const [permitSubmitting, setPermitSubmitting] = useState(false)
   const [permitError, setPermitError] = useState('')
+
+  const [showClaimForm, setShowClaimForm] = useState(false)
+  const [claimForm, setClaimForm] = useState({ tower: 'Tower 1', unit_number: '' })
+  const [claimSubmitting, setClaimSubmitting] = useState(false)
+  const [claimError, setClaimError] = useState('')
+  const [claimDone, setClaimDone] = useState(false)
 
   async function loadUnits() {
     const { data } = await supabase
@@ -177,6 +185,28 @@ export default function OwnerDashboard({ profile }) {
     loadPermits()
   }
 
+  async function submitClaim(e) {
+    e.preventDefault()
+    setClaimError('')
+    if (!claimForm.unit_number.trim()) {
+      setClaimError('Please enter the unit number.')
+      return
+    }
+    setClaimSubmitting(true)
+    const { error } = await supabase.from('unit_claims').insert({
+      owner_id: profile.id,
+      tower: claimForm.tower,
+      unit_number: claimForm.unit_number.trim(),
+    })
+    setClaimSubmitting(false)
+    if (error) {
+      setClaimError(error.message)
+      return
+    }
+    setClaimForm({ tower: 'Tower 1', unit_number: '' })
+    setClaimDone(true)
+  }
+
   if (units.length === 0) {
     return (
       <div>
@@ -191,31 +221,89 @@ export default function OwnerDashboard({ profile }) {
 
   return (
     <div>
-      <div className="view-header">
-        <div className="eyebrow">Owner Portal</div>
-        <h1>Welcome back, {profile.full_name}</h1>
-        {units.length > 1 ? (
-          <div style={{ marginTop: 10 }}>
-            <select
-              style={{ width: 260 }}
-              value={selectedUnitId || ''}
-              onChange={(e) => setSelectedUnitId(e.target.value)}
-            >
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  Unit {u.unit_number}
-                  {u.building ? ` · ${u.building}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <div className="subtext">
-            Unit {selectedUnit?.unit_number}
-            {selectedUnit?.building ? ` · ${selectedUnit.building}` : ''}
-          </div>
-        )}
+      <div className="view-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div className="eyebrow">Owner Portal</div>
+          <h1>Welcome back, {profile.full_name}</h1>
+          {units.length > 1 ? (
+            <div style={{ marginTop: 10 }}>
+              <select
+                style={{ width: 260 }}
+                value={selectedUnitId || ''}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+              >
+                {units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    Unit {u.unit_number}
+                    {u.building ? ` · ${u.building}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="subtext">
+              Unit {selectedUnit?.unit_number}
+              {selectedUnit?.building ? ` · ${selectedUnit.building}` : ''}
+            </div>
+          )}
+        </div>
+        <button
+          className="btn-small"
+          onClick={() => {
+            setShowClaimForm(!showClaimForm)
+            setClaimDone(false)
+          }}
+        >
+          + Register Another Unit
+        </button>
       </div>
+
+      {showClaimForm && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          {claimDone ? (
+            <div>
+              <div className="title" style={{ marginBottom: 6 }}>Request submitted</div>
+              <div className="meta">
+                Your admin will review and link this unit to your account. It'll appear in your unit
+                switcher above once approved.
+              </div>
+              <button className="link-btn" style={{ marginTop: 10 }} onClick={() => setShowClaimForm(false)}>
+                Close
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={submitClaim}>
+              <h2>Register Another Unit You Own</h2>
+              <div className="two-col">
+                <div>
+                  <label>Tower</label>
+                  <select
+                    value={claimForm.tower}
+                    onChange={(e) => setClaimForm({ ...claimForm, tower: e.target.value })}
+                  >
+                    {TOWERS.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label>Unit Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 14B"
+                    value={claimForm.unit_number}
+                    onChange={(e) => setClaimForm({ ...claimForm, unit_number: e.target.value })}
+                  />
+                </div>
+              </div>
+              {claimError && <div className="error-text">{claimError}</div>}
+              <button className="btn btn-primary" disabled={claimSubmitting}>
+                {claimSubmitting ? 'Submitting…' : 'Submit for admin approval'}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       <div className="grid2">
         <div className="stack">
