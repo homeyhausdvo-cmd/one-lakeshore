@@ -142,6 +142,23 @@ input:focus, textarea:focus{ outline:2px solid var(--primary); outline-offset:1p
 .search-bar{ display:flex; gap:10px; margin-bottom:24px; }
 .search-bar input{ flex:1; padding:13px 16px; font-size:15px; }
 
+.unit-card{ border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:12px; }
+.unit-card-top{ display:flex; justify-content:space-between; align-items:flex-start; }
+.unit-card-title{ font-family:'Fraunces',serif; font-size:16px; font-weight:600; }
+.unit-card-meta{ font-size:12.5px; color:var(--ink-soft); margin-top:4px; }
+.icon-btn{ background:none; border:none; cursor:pointer; padding:4px; border-radius:6px; color:var(--ink-soft); }
+.icon-btn:hover{ background:var(--red-light); color:var(--red); }
+.owner-pill{
+  display:inline-flex; align-items:center; gap:8px; background:var(--green-light); color:var(--green);
+  padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600; margin-top:10px;
+}
+.owner-pill .unlink-x{ cursor:pointer; opacity:0.7; font-weight:700; }
+.owner-pill .unlink-x:hover{ opacity:1; }
+.occ-badge{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; text-transform:uppercase; letter-spacing:0.3px; }
+.occ-badge.owner_occupied{ background:var(--primary-light); color:var(--primary); }
+.occ-badge.long_term_tenant{ background:var(--green-light); color:var(--green); }
+.occ-badge.str{ background:var(--gold-light); color:var(--gold); }
+
 .empty{ text-align:center; padding:40px 20px; color:var(--ink-soft); font-size:14px; }
 
 .stat-row{ display:flex; gap:14px; margin-bottom:22px; }

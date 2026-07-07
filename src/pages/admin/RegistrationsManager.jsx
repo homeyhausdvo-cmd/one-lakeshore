@@ -51,7 +51,7 @@ export default function RegistrationsManager() {
     load()
   }, [])
 
-  async function findOrCreateUnit({ tower, unit_number, owner_id, owner_name }) {
+  async function findOrCreateUnit({ tower, unit_number, owner_id, owner_name, occupancy_type }) {
     const { data: existingUnit, error: findErr } = await supabase
       .from('units')
       .select('id')
@@ -72,7 +72,7 @@ export default function RegistrationsManager() {
         building: tower,
         owner_name,
         owner_id,
-        occupancy_type: 'owner_occupied',
+        occupancy_type: occupancy_type || 'owner_occupied',
       })
       if (insertErr) throw insertErr
     }
@@ -87,6 +87,7 @@ export default function RegistrationsManager() {
         unit_number: item.unit_number,
         owner_id: item.kind === 'registration' ? item.id : item.raw.owner_id,
         owner_name: item.full_name,
+        occupancy_type: item.kind === 'claim' ? item.raw.occupancy_type : 'owner_occupied',
       })
 
       if (item.kind === 'registration') {

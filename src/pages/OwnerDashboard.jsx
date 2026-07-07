@@ -48,7 +48,7 @@ export default function OwnerDashboard({ profile }) {
   const [permitError, setPermitError] = useState('')
 
   const [showClaimForm, setShowClaimForm] = useState(false)
-  const [claimForm, setClaimForm] = useState({ tower: 'Tower 1', unit_number: '' })
+  const [claimForm, setClaimForm] = useState({ tower: 'Tower 1', unit_number: '', occupancy_type: 'owner_occupied' })
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimError, setClaimError] = useState('')
   const [claimDone, setClaimDone] = useState(false)
@@ -209,13 +209,14 @@ export default function OwnerDashboard({ profile }) {
       owner_id: profile.id,
       tower: claimForm.tower,
       unit_number: claimForm.unit_number.trim(),
+      occupancy_type: claimForm.occupancy_type,
     })
     setClaimSubmitting(false)
     if (error) {
       setClaimError(error.message)
       return
     }
-    setClaimForm({ tower: 'Tower 1', unit_number: '' })
+    setClaimForm({ tower: 'Tower 1', unit_number: '', occupancy_type: 'owner_occupied' })
     setClaimDone(true)
   }
 
@@ -308,6 +309,15 @@ export default function OwnerDashboard({ profile }) {
                   />
                 </div>
               </div>
+              <label>Occupancy Type</label>
+              <select
+                value={claimForm.occupancy_type}
+                onChange={(e) => setClaimForm({ ...claimForm, occupancy_type: e.target.value })}
+              >
+                <option value="owner_occupied">Owner-occupied</option>
+                <option value="long_term_tenant">Long-term tenant</option>
+                <option value="str">STR (short-term rental)</option>
+              </select>
               {claimError && <div className="error-text">{claimError}</div>}
               <button className="btn btn-primary" disabled={claimSubmitting}>
                 {claimSubmitting ? 'Submitting…' : 'Submit for admin approval'}

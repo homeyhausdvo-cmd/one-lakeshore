@@ -199,55 +199,52 @@ export default function UnitsManager() {
           </div>
         )}
         {filteredUnits.map((u) => (
-          <div className="list-item" key={u.id}>
-            <div style={{ flex: 1 }}>
-              <div className="title">
-                Unit {u.unit_number}
-                {u.building ? ` · ${u.building}` : ''}
+          <div className="unit-card" key={u.id}>
+            <div className="unit-card-top">
+              <div>
+                <div className="unit-card-title">
+                  Unit {u.unit_number}
+                  {u.building ? ` · ${u.building}` : ''}
+                </div>
+                <div className="unit-card-meta">
+                  {u.owner_name}
+                  {u.managed_by ? ` · Managed by ${u.managed_by}` : ''}
+                </div>
               </div>
-              <div className="meta">
-                {u.owner_name}
-                {u.managed_by ? ` · Managed by ${u.managed_by}` : ''}
-                {' · '}
-                {OCCUPANCY_LABELS[u.occupancy_type]}
-              </div>
+              <button className="icon-btn" title="Delete unit" onClick={() => remove(u.id)}>
+                🗑
+              </button>
+            </div>
 
-              <div style={{ marginTop: 10, fontSize: 12.5 }}>
-                {u.owner_id ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ color: 'var(--green)', fontWeight: 600 }}>
-                      ✓ Linked to {u.profiles?.full_name} ({u.profiles?.email})
-                    </span>
-                    <button className="link-btn danger" onClick={() => unlinkOwner(u.id)}>
-                      Unlink
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <select
-                      style={{ width: 240, padding: '6px 8px', fontSize: 12.5 }}
-                      value={linkChoice[u.id] || ''}
-                      onChange={(e) => setLinkChoice({ ...linkChoice, [u.id]: e.target.value })}
-                    >
-                      <option value="">No login linked — select an owner account…</option>
-                      {ownerProfiles.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name} ({p.email})
-                        </option>
-                      ))}
-                    </select>
-                    <button className="link-btn" onClick={() => linkOwner(u.id)} disabled={!linkChoice[u.id]}>
-                      Link
-                    </button>
-                  </div>
-                )}
-              </div>
+            <div style={{ marginTop: 10 }}>
+              <span className={`occ-badge ${u.occupancy_type}`}>{OCCUPANCY_LABELS[u.occupancy_type]}</span>
+            </div>
 
-              <div style={{ marginTop: 10 }}>
-                <button className="link-btn danger" onClick={() => remove(u.id)}>
-                  Delete unit
-                </button>
-              </div>
+            <div style={{ marginTop: 10 }}>
+              {u.owner_id ? (
+                <div className="owner-pill">
+                  ✓ Linked to {u.profiles?.full_name}
+                  <span className="unlink-x" onClick={() => unlinkOwner(u.id)}>✕</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select
+                    style={{ width: 240, padding: '6px 8px', fontSize: 12.5 }}
+                    value={linkChoice[u.id] || ''}
+                    onChange={(e) => setLinkChoice({ ...linkChoice, [u.id]: e.target.value })}
+                  >
+                    <option value="">No login linked — select an owner account…</option>
+                    {ownerProfiles.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.full_name} ({p.email})
+                      </option>
+                    ))}
+                  </select>
+                  <button className="link-btn" onClick={() => linkOwner(u.id)} disabled={!linkChoice[u.id]}>
+                    Link
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
