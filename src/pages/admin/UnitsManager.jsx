@@ -4,9 +4,9 @@ import { supabase } from '../../supabaseClient'
 const TOWERS = ['Tower 1', 'Tower 2', 'Tower 3', 'Tower 4']
 
 const OCCUPANCY_LABELS = {
-  owner_occupied: 'Owner-occupied',
-  long_term_tenant: 'Long-term tenant',
-  str: 'STR (short-term rental)',
+  owner_occupied: 'Owner',
+  long_term_tenant: 'Long-term',
+  str: 'STR',
 }
 
 function getFloor(unitNumber) {
@@ -17,7 +17,9 @@ function getFloor(unitNumber) {
 export default function UnitsManager() {
   const [units, setUnits] = useState([])
   const [ownerProfiles, setOwnerProfiles] = useState([])
+  const [billStanding, setBillStanding] = useState({})
   const [linkChoice, setLinkChoice] = useState({})
+  const [editingLinkFor, setEditingLinkFor] = useState(null)
   const [form, setForm] = useState({
     unit_number: '',
     owner_name: '',
@@ -33,12 +35,22 @@ export default function UnitsManager() {
   const [floorFilter, setFloorFilter] = useState('all')
 
   async function load() {
-    const [{ data: unitsData }, { data: profilesData }] = await Promise.all([
+    const [{ data: unitsData }, { data: profilesData }, { data: billsData }] = await Promise.all([
       supabase.from('units').select('*, profiles!units_owner_id_fkey(full_name, email)').order('unit_number'),
       supabase.from('profiles').select('id, full_name, email').eq('role', 'owner').order('full_name'),
+      supabase.from('hoa_bills').select('unit_id, status'),
     ])
     setUnits(unitsData || [])
     setOwnerProfiles(profilesData || [])
+
+    const standing = {}
+    ;(billsData || []).forEach((b) => {
+      const cur = standing[b.unit_id]
+      if (b.status === 'overdue') standing[b.unit_id] = 'overdue'
+      else if (b.status === 'unpaid' && cur !== 'overdue') standing[b.unit_id] = 'unpaid'
+      else if (!cur) standing[b.unit_id] = 'paid'
+    })
+    setBillStanding(standing)
   }
 
   useEffect(() => {
@@ -79,6 +91,7 @@ export default function UnitsManager() {
     const profileId = linkChoice[unitId]
     if (!profileId) return
     await supabase.from('units').update({ owner_id: profileId }).eq('id', unitId)
+    setEditingLinkFor(null)
     load()
   }
 
@@ -105,6 +118,14 @@ export default function UnitsManager() {
       return true
     })
   }, [units, search, towerFilter, floorFilter])
+
+  function StandingBadge({ unitId }) {
+    const s = billStanding[unitId]
+    if (!s) return <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>—</span>
+    if (s === 'overdue') return <span className="badge overdue">Overdue</span>
+    if (s === 'unpaid') return <span className="badge unpaid">Pending</span>
+    return <span className="badge paid">Good standing</span>
+  }
 
   return (
     <div className="grid2">
@@ -193,61 +214,79 @@ export default function UnitsManager() {
           </div>
         </div>
 
-        {filteredUnits.length === 0 && (
+        {filteredUnits.length === 0 ? (
           <div className="empty">
             {units.length === 0 ? 'No units yet.' : 'No units match your search/filter.'}
           </div>
-        )}
-        {filteredUnits.map((u) => (
-          <div className="unit-card" key={u.id}>
-            <div className="unit-card-top">
-              <div>
-                <div className="unit-card-title">
-                  Unit {u.unit_number}
-                  {u.building ? ` · ${u.building}` : ''}
-                </div>
-                <div className="unit-card-meta">
-                  {u.owner_name}
-                  {u.managed_by ? ` · Managed by ${u.managed_by}` : ''}
-                </div>
-              </div>
-              <button className="icon-btn" title="Delete unit" onClick={() => remove(u.id)}>
-                🗑
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <span className={`occ-badge ${u.occupancy_type}`}>{OCCUPANCY_LABELS[u.occupancy_type]}</span>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              {u.owner_id ? (
-                <div className="owner-pill">
-                  ✓ Linked to {u.profiles?.full_name}
-                  <span className="unlink-x" onClick={() => unlinkOwner(u.id)}>✕</span>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <select
-                    style={{ width: 240, padding: '6px 8px', fontSize: 12.5 }}
-                    value={linkChoice[u.id] || ''}
-                    onChange={(e) => setLinkChoice({ ...linkChoice, [u.id]: e.target.value })}
-                  >
-                    <option value="">No login linked — select an owner account…</option>
-                    {ownerProfiles.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.full_name} ({p.email})
-                      </option>
-                    ))}
-                  </select>
-                  <button className="link-btn" onClick={() => linkOwner(u.id)} disabled={!linkChoice[u.id]}>
-                    Link
-                  </button>
-                </div>
-              )}
-            </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="mini-table">
+              <thead>
+                <tr>
+                  <th>Tower</th>
+                  <th>Unit</th>
+                  <th>Owner</th>
+                  <th>Manager</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUnits.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.building}</td>
+                    <td style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{u.unit_number}</td>
+                    <td>
+                      <div>{u.owner_name}</div>
+                      {u.owner_id ? (
+                        <div style={{ fontSize: 11.5, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                          ✓ {u.profiles?.email}
+                          <span
+                            style={{ cursor: 'pointer', color: 'var(--red)', fontWeight: 700 }}
+                            onClick={() => unlinkOwner(u.id)}
+                          >
+                            ✕
+                          </span>
+                        </div>
+                      ) : editingLinkFor === u.id ? (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                          <select
+                            style={{ width: 170, padding: '4px 6px', fontSize: 11.5 }}
+                            value={linkChoice[u.id] || ''}
+                            onChange={(e) => setLinkChoice({ ...linkChoice, [u.id]: e.target.value })}
+                          >
+                            <option value="">Select account…</option>
+                            {ownerProfiles.map((p) => (
+                              <option key={p.id} value={p.id}>{p.full_name}</option>
+                            ))}
+                          </select>
+                          <button className="link-btn" onClick={() => linkOwner(u.id)} disabled={!linkChoice[u.id]}>
+                            OK
+                          </button>
+                        </div>
+                      ) : (
+                        <button className="link-btn" style={{ fontSize: 11.5, marginTop: 3 }} onClick={() => setEditingLinkFor(u.id)}>
+                          + Link account
+                        </button>
+                      )}
+                    </td>
+                    <td>{u.managed_by || '—'}</td>
+                    <td>
+                      <span className={`occ-badge ${u.occupancy_type}`}>{OCCUPANCY_LABELS[u.occupancy_type]}</span>
+                    </td>
+                    <td><StandingBadge unitId={u.id} /></td>
+                    <td>
+                      <button className="icon-btn" title="Delete unit" onClick={() => remove(u.id)}>
+                        🗑
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
+        )}
       </div>
     </div>
   )
