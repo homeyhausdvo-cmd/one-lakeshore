@@ -11,7 +11,7 @@ export default function GuestCheckPanel({ guest, unitLabel, onRefresh, profile }
   const fmtDate = (d) =>
     new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const fmtTs = (ts) =>
-    new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   async function confirmCheckIn() {
     setBusy(true)
