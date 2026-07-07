@@ -34,7 +34,7 @@ export default function UnitsManager() {
 
   async function load() {
     const [{ data: unitsData }, { data: profilesData }] = await Promise.all([
-      supabase.from('units').select('*, profiles(full_name, email)').order('unit_number'),
+      supabase.from('units').select('*, profiles!units_owner_id_fkey(full_name, email)').order('unit_number'),
       supabase.from('profiles').select('id, full_name, email').eq('role', 'owner').order('full_name'),
     ])
     setUnits(unitsData || [])
