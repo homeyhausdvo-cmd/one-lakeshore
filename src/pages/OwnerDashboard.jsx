@@ -53,6 +53,11 @@ export default function OwnerDashboard({ profile }) {
   const [claimError, setClaimError] = useState('')
   const [claimDone, setClaimDone] = useState(false)
 
+  const [grants, setGrants] = useState([])
+  const [grantForm, setGrantForm] = useState({ email: '', can_guests: true, can_permits: true, can_billing: false })
+  const [grantSubmitting, setGrantSubmitting] = useState(false)
+  const [grantError, setGrantError] = useState('')
+
   async function loadUnits() {
     const { data } = await supabase
       .from('units')
@@ -110,8 +115,21 @@ export default function OwnerDashboard({ profile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  async function loadGrants(unitId) {
+    if (!unitId) return
+    const { data } = await supabase
+      .from('unit_manager_access')
+      .select('*')
+      .eq('unit_id', unitId)
+      .order('created_at', { ascending: false })
+    setGrants(data || [])
+  }
+
   useEffect(() => {
-    if (selectedUnitId) loadUnitData(selectedUnitId)
+    if (selectedUnitId) {
+      loadUnitData(selectedUnitId)
+      loadGrants(selectedUnitId)
+    }
   }, [selectedUnitId])
 
   const selectedUnit = units.find((u) => u.id === selectedUnitId)
@@ -218,6 +236,41 @@ export default function OwnerDashboard({ profile }) {
     }
     setClaimForm({ tower: 'Tower 1', unit_number: '', occupancy_type: 'owner_occupied' })
     setClaimDone(true)
+  }
+
+  async function submitGrant(e) {
+    e.preventDefault()
+    setGrantError('')
+    if (!grantForm.email.trim()) {
+      setGrantError('Please enter an email address.')
+      return
+    }
+    if (!selectedUnitId) {
+      setGrantError('No unit selected.')
+      return
+    }
+    setGrantSubmitting(true)
+    const { error } = await supabase.from('unit_manager_access').insert({
+      unit_id: selectedUnitId,
+      manager_email: grantForm.email.trim().toLowerCase(),
+      can_guests: grantForm.can_guests,
+      can_permits: grantForm.can_permits,
+      can_billing: grantForm.can_billing,
+      invited_by: profile.id,
+    })
+    setGrantSubmitting(false)
+    if (error) {
+      setGrantError(error.message)
+      return
+    }
+    setGrantForm({ email: '', can_guests: true, can_permits: true, can_billing: false })
+    loadGrants(selectedUnitId)
+  }
+
+  async function revokeGrant(id) {
+    if (!confirm('Revoke this manager\'s access to this unit?')) return
+    await supabase.from('unit_manager_access').delete().eq('id', id)
+    loadGrants(selectedUnitId)
   }
 
   if (units.length === 0) {
@@ -339,6 +392,9 @@ export default function OwnerDashboard({ profile }) {
         </button>
         <button className={activeTab === 'guestlist' ? 'active' : ''} onClick={() => setActiveTab('guestlist')}>
           Guest List
+        </button>
+        <button className={activeTab === 'access' ? 'active' : ''} onClick={() => setActiveTab('access')}>
+          Access
         </button>
       </div>
 
@@ -623,6 +679,77 @@ export default function OwnerDashboard({ profile }) {
           ) : (
             <div className="empty">No guest submissions yet.</div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'access' && (
+        <div className="grid2">
+          <div className="card">
+            <h2>Invite a Manager {selectedUnit ? `— Unit ${selectedUnit.unit_number}` : ''}</h2>
+            <div className="subtext" style={{ marginTop: -8, marginBottom: 14 }}>
+              Grant someone access to this unit only — pick exactly what they can see and do
+            </div>
+            <form onSubmit={submitGrant}>
+              <label>Manager's Email</label>
+              <input
+                type="email"
+                placeholder="e.g. manager@example.com"
+                value={grantForm.email}
+                onChange={(e) => setGrantForm({ ...grantForm, email: e.target.value })}
+              />
+              <div className="checkbox-row">
+                <input
+                  type="checkbox"
+                  id="can_guests"
+                  checked={grantForm.can_guests}
+                  onChange={(e) => setGrantForm({ ...grantForm, can_guests: e.target.checked })}
+                />
+                <label htmlFor="can_guests">Guest Form — submit & view guests for this unit</label>
+              </div>
+              <div className="checkbox-row">
+                <input
+                  type="checkbox"
+                  id="can_permits"
+                  checked={grantForm.can_permits}
+                  onChange={(e) => setGrantForm({ ...grantForm, can_permits: e.target.checked })}
+                />
+                <label htmlFor="can_permits">Work Permit Form — submit & view permits for this unit</label>
+              </div>
+              <div className="checkbox-row">
+                <input
+                  type="checkbox"
+                  id="can_billing"
+                  checked={grantForm.can_billing}
+                  onChange={(e) => setGrantForm({ ...grantForm, can_billing: e.target.checked })}
+                />
+                <label htmlFor="can_billing">Billing — view Statement of Account (HOA / Electric / Water)</label>
+              </div>
+              {grantError && <div className="error-text">{grantError}</div>}
+              <button className="btn btn-primary" disabled={grantSubmitting}>
+                {grantSubmitting ? 'Granting…' : 'Grant access'}
+              </button>
+            </form>
+          </div>
+
+          <div className="card">
+            <h2>People With Access</h2>
+            {grants.length === 0 && <div className="empty">No one else has access to this unit yet.</div>}
+            {grants.map((g) => (
+              <div className="list-item" key={g.id}>
+                <div>
+                  <div className="title">{g.manager_email}</div>
+                  <div className="meta" style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    {g.can_guests && <span className="occ-badge owner_occupied">Guest Form</span>}
+                    {g.can_permits && <span className="occ-badge long_term_tenant">Work Permits</span>}
+                    {g.can_billing && <span className="occ-badge str">Billing</span>}
+                  </div>
+                  <button className="link-btn danger" style={{ marginTop: 8 }} onClick={() => revokeGrant(g.id)}>
+                    Revoke access
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
