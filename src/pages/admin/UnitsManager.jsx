@@ -104,6 +104,11 @@ export default function UnitsManager() {
     load()
   }
 
+  async function updateOccupancyType(unitId, occupancy_type) {
+    await supabase.from('units').update({ occupancy_type }).eq('id', unitId)
+    load()
+  }
+
   const availableFloors = useMemo(() => {
     const scoped = towerFilter === 'all' ? units : units.filter((u) => u.building === towerFilter)
     const floors = new Set(scoped.map((u) => getFloor(u.unit_number)).filter(Boolean))
@@ -231,7 +236,15 @@ export default function UnitsManager() {
                   </td>
                   <td>{u.managed_by || '—'}</td>
                   <td>
-                    <span className={`occ-badge ${u.occupancy_type}`}>{OCCUPANCY_LABELS[u.occupancy_type]}</span>
+                    <select
+                      value={u.occupancy_type}
+                      onChange={(e) => updateOccupancyType(u.id, e.target.value)}
+                      style={{ width: 150, padding: '6px 8px', fontSize: 12.5 }}
+                    >
+                      <option value="owner_occupied">Owner</option>
+                      <option value="long_term_tenant">Long-term</option>
+                      <option value="str">STR</option>
+                    </select>
                   </td>
                   <td><StandingBadge unitId={u.id} /></td>
                   <td>
