@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
+import BulkBillUpload from './BulkBillUpload'
 
 const BILL_TYPES = [
   { value: 'hoa', label: 'HOA Dues' },
@@ -11,6 +12,7 @@ export default function BillingManager() {
   const [units, setUnits] = useState([])
   const [bills, setBills] = useState([])
   const [filterUnit, setFilterUnit] = useState('')
+  const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [form, setForm] = useState({
     unit_id: '',
     bill_type: 'hoa',
@@ -80,13 +82,27 @@ export default function BillingManager() {
     load()
   }
 
+  async function viewPdf(pdfPath) {
+    const { data, error } = await supabase.storage.from('bills').createSignedUrl(pdfPath, 3600)
+    if (error || !data) {
+      alert('Could not open PDF.')
+      return
+    }
+    window.open(data.signedUrl, '_blank')
+  }
+
   const visibleBills = filterUnit ? bills.filter((b) => b.unit_id === filterUnit) : bills
   const typeLabel = (t) => BILL_TYPES.find((bt) => bt.value === t)?.label || t
 
   return (
     <div className="grid2">
       <div className="card">
-        <h2>Create a Bill</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <h2 style={{ margin: 0 }}>Create a Bill</h2>
+          <button className="link-btn" onClick={() => setShowBulkUpload(true)}>
+            + Bulk Upload PDFs
+          </button>
+        </div>
         <form onSubmit={handleSubmit}>
           <label>Unit</label>
           <select value={form.unit_id} onChange={(e) => setForm({ ...form, unit_id: e.target.value })}>
@@ -171,6 +187,14 @@ export default function BillingManager() {
                       day: 'numeric',
                     })}
                   </span>
+                  {b.pdf_path && (
+                    <>
+                      <br />
+                      <button className="link-btn" style={{ fontSize: 11 }} onClick={() => viewPdf(b.pdf_path)}>
+                        View PDF
+                      </button>
+                    </>
+                  )}
                 </td>
                 <td>
                   <span className={`badge ${b.status}`}>{b.status}</span>
@@ -197,6 +221,16 @@ export default function BillingManager() {
           </tbody>
         </table>
       </div>
+
+      {showBulkUpload && (
+        <BulkBillUpload
+          onClose={() => setShowBulkUpload(false)}
+          onUploaded={() => {
+            load()
+            setShowBulkUpload(false)
+          }}
+        />
+      )}
     </div>
   )
 }
