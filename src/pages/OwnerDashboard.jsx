@@ -729,6 +729,12 @@ export default function OwnerDashboard({ profile }) {
                 {grantSubmitting ? 'Granting…' : 'Grant access'}
               </button>
             </form>
+            <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--primary-light)', borderRadius: 8, fontSize: 12.5, color: 'var(--primary)' }}>
+              <strong>Note:</strong> this only saves their permissions — it doesn't create their login. Tell your
+              manager to go to the sign-in page and click <strong>"Property manager? Register here"</strong> to set
+              their own password, using this exact email address. Once they do, this unit appears in their dashboard
+              automatically.
+            </div>
           </div>
 
           <div className="card">

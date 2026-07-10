@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../supabaseClient'
 import RegistrationsManager from './admin/RegistrationsManager'
 import UnitsManager from './admin/UnitsManager'
 import GuestApprovals from './admin/GuestApprovals'
@@ -19,6 +20,32 @@ const TABS = [
 
 export default function AdminDashboard({ profile }) {
   const [tab, setTab] = useState('registrations')
+  const [counts, setCounts] = useState({ registrations: 0, guests: 0, permits: 0 })
+
+  async function loadCounts() {
+    const [{ count: profilesPending }, { count: claimsPending }, { count: guestsPending }, { count: permitsPending }] =
+      await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'owner').eq('approval_status', 'pending'),
+        supabase.from('unit_claims').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('guests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('work_permits').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      ])
+    setCounts({
+      registrations: (profilesPending || 0) + (claimsPending || 0),
+      guests: guestsPending || 0,
+      permits: permitsPending || 0,
+    })
+  }
+
+  useEffect(() => {
+    loadCounts()
+    const interval = setInterval(loadCounts, 20000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    loadCounts()
+  }, [tab])
 
   return (
     <div>
@@ -32,6 +59,7 @@ export default function AdminDashboard({ profile }) {
         {TABS.map((t) => (
           <button key={t.key} className={tab === t.key ? 'active' : ''} onClick={() => setTab(t.key)}>
             {t.label}
+            {counts[t.key] > 0 && <span className="tab-badge">{counts[t.key]}</span>}
           </button>
         ))}
       </div>
