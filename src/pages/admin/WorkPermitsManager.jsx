@@ -10,7 +10,7 @@ function monthLabel(key) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-export default function WorkPermitsManager({ profile }) {
+export default function WorkPermitsManager({ profile, onChange }) {
   const [permits, setPermits] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date().toISOString()))
 
@@ -32,6 +32,7 @@ export default function WorkPermitsManager({ profile }) {
       .update({ status, reviewed_by: profile.id, reviewed_at: new Date().toISOString() })
       .eq('id', id)
     load()
+    onChange?.()
   }
 
   const pending = permits.filter((p) => p.status === 'pending')

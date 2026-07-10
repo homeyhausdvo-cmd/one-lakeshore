@@ -11,7 +11,7 @@ function monthLabel(key) {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-export default function GuestApprovals({ profile }) {
+export default function GuestApprovals({ profile, onChange }) {
   const [guests, setGuests] = useState([])
   const [unpaidCount, setUnpaidCount] = useState(0)
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date().toISOString()))
@@ -40,6 +40,7 @@ export default function GuestApprovals({ profile }) {
       .update({ status, reviewed_by: profile.id, reviewed_at: new Date().toISOString() })
       .eq('id', id)
     loadAll()
+    onChange?.()
   }
 
   const pending = guests.filter((g) => g.status === 'pending')

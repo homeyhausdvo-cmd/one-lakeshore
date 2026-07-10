@@ -38,7 +38,7 @@ function downloadCsv(rows) {
   URL.revokeObjectURL(url)
 }
 
-export default function RegistrationsManager() {
+export default function RegistrationsManager({ onChange }) {
   const [pending, setPending] = useState([])
   const [reviewed, setReviewed] = useState([])
   const [busyId, setBusyId] = useState(null)
@@ -149,6 +149,7 @@ export default function RegistrationsManager() {
       }
 
       await load()
+      onChange?.()
     } catch (err) {
       setError(err.message || 'Something went wrong while approving.')
     }
@@ -164,6 +165,7 @@ export default function RegistrationsManager() {
       await supabase.from('unit_claims').update({ status: 'rejected' }).eq('id', item.id)
     }
     await load()
+    onChange?.()
     setBusyId(null)
   }
 

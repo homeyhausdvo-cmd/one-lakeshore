@@ -64,10 +64,10 @@ export default function AdminDashboard({ profile }) {
         ))}
       </div>
 
-      {tab === 'registrations' && <RegistrationsManager />}
+      {tab === 'registrations' && <RegistrationsManager onChange={loadCounts} />}
       {tab === 'units' && <UnitsManager />}
-      {tab === 'guests' && <GuestApprovals profile={profile} />}
-      {tab === 'permits' && <WorkPermitsManager profile={profile} />}
+      {tab === 'guests' && <GuestApprovals profile={profile} onChange={loadCounts} />}
+      {tab === 'permits' && <WorkPermitsManager profile={profile} onChange={loadCounts} />}
       {tab === 'announcements' && <AnnouncementsManager profile={profile} />}
       {tab === 'maintenance' && <MaintenanceManager profile={profile} />}
       {tab === 'billing' && <BillingManager />}
